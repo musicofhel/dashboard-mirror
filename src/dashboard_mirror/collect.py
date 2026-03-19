@@ -27,7 +27,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright, Page, BrowserContext
 
-from .config import OO_URL, OO_USER, OO_PASS, OO_ORG, OUTPUT_DIR, TIME_RANGES
+from . import config as cfg
 
 
 def slugify(title: str) -> str:
@@ -38,7 +38,7 @@ def slugify(title: str) -> str:
 def api_get(context: BrowserContext, path: str) -> dict | list | str:
     """Make an authenticated GET request via Playwright's request context."""
     resp = context.request.get(
-        f"{OO_URL}/api/{OO_ORG}/{path}",
+        f"{cfg.OO_URL}/api/{cfg.OO_ORG}/{path}",
         headers={"Content-Type": "application/json"},
     )
     if resp.ok:
@@ -71,12 +71,12 @@ def list_dashboards(context: BrowserContext) -> list[dict]:
 
 def login(page: Page) -> None:
     """Log into OpenObserve."""
-    page.goto(f"{OO_URL}/web/login")
+    page.goto(f"{cfg.OO_URL}/web/login")
     page.wait_for_load_state("networkidle")
 
     # Fill credentials
-    page.fill('input[type="email"]', OO_USER)
-    page.fill('input[type="password"]', OO_PASS)
+    page.fill('input[type="email"]', cfg.OO_USER)
+    page.fill('input[type="password"]', cfg.OO_PASS)
     page.click('button[type="submit"]')
 
     # Wait for redirect to main app
@@ -468,7 +468,7 @@ def collect_dashboard(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n  [{slug}] Collecting...")
-    dashboard_url = f"{OO_URL}/web/dashboards/view?org_identifier={OO_ORG}&dashboard={dash_id}"
+    dashboard_url = f"{cfg.OO_URL}/web/dashboards/view?org_identifier={cfg.OO_ORG}&dashboard={dash_id}"
 
     # --- API interception + initial load ---
     print(f"    Capturing API responses...")
@@ -508,7 +508,7 @@ def collect_dashboard(
     capture_panel_screenshots(page, out_dir)
 
     # --- Screenshots at other time ranges ---
-    for label, period in TIME_RANGES:
+    for label, period in cfg.TIME_RANGES:
         if period == "30d":
             continue  # Already captured as default
         print(f"    Capturing screenshots ({label})...")
@@ -540,7 +540,7 @@ def collect_dashboard(
         "url": dashboard_url,
         "panel_count": panel_count,
         "tab_count": tab_count,
-        "time_ranges_captured": [tr[0] for tr in TIME_RANGES],
+        "time_ranges_captured": [tr[0] for tr in cfg.TIME_RANGES],
         "collected_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
     with open(out_dir / "meta.json", "w") as f:
@@ -551,30 +551,33 @@ def collect_dashboard(
 
 def main():
     parser = argparse.ArgumentParser(description="Collect mirror data from OpenObserve dashboards")
-    parser.add_argument("--url", default=OO_URL, help="OpenObserve base URL")
-    parser.add_argument("--user", default=OO_USER, help="OO username")
-    parser.add_argument("--pass", dest="password", default=OO_PASS, help="OO password")
+    parser.add_argument("--url", default=cfg.OO_URL, help="OpenObserve base URL")
+    parser.add_argument("--user", default=cfg.OO_USER, help="OO username")
+    parser.add_argument("--pass", dest="password", default=cfg.OO_PASS, help="OO password")
     parser.add_argument("--dashboard", action="append", help="Only collect specific dashboard slug(s)")
-    parser.add_argument("--output", type=Path, default=OUTPUT_DIR, help="Output directory")
+    parser.add_argument("--output", type=Path, default=cfg.OUTPUT_DIR, help="Output directory")
     args = parser.parse_args()
 
-    # Override config from args
-    global OO_URL, OO_USER, OO_PASS
-    OO_URL = args.url
-    OO_USER = args.user
-    OO_PASS = args.password
+    oo_url = args.url
+    oo_user = args.user
+    oo_pass = args.password
 
     output_base = args.output
     output_base.mkdir(parents=True, exist_ok=True)
 
-    print(f"Dashboard Mirror — Collecting from {OO_URL}")
+    print(f"Dashboard Mirror — Collecting from {oo_url}")
     print(f"Output: {output_base.resolve()}")
+
+    # Patch config so helper functions use CLI args
+    cfg.OO_URL = oo_url
+    cfg.OO_USER = oo_user
+    cfg.OO_PASS = oo_pass
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            http_credentials={"username": OO_USER, "password": OO_PASS},
+            http_credentials={"username": oo_user, "password": oo_pass},
         )
         page = context.new_page()
 
