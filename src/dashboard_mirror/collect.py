@@ -145,18 +145,28 @@ def capture_screenshots(page: Page, out_dir: Path, label: str = "") -> None:
     ss_dir = out_dir / f"screenshots{'-' + label if label else ''}"
     ss_dir.mkdir(parents=True, exist_ok=True)
 
-    # Full-page screenshot
+    # Scroll through entire page first to trigger lazy-loaded panels
+    viewport_height = page.viewport_size["height"]
+    scroll_height = page.evaluate("document.documentElement.scrollHeight")
+    pos = 0
+    while pos < scroll_height:
+        page.evaluate(f"window.scrollTo(0, {pos})")
+        page.wait_for_timeout(1000)  # let lazy panels load + render
+        pos += viewport_height
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(1500)  # settle after scroll-back
+
+    # Full-page screenshot (all panels now rendered)
     page.screenshot(path=str(ss_dir / "full-page.png"), full_page=True)
 
-    # Viewport stops — scroll down the page taking screenshots
-    viewport_height = page.viewport_size["height"]
+    # Viewport stops — scroll down capturing at each stop
     scroll_height = page.evaluate("document.documentElement.scrollHeight")
     stop = 0
     idx = 1
 
     while stop < scroll_height:
         page.evaluate(f"window.scrollTo(0, {stop})")
-        page.wait_for_timeout(800)  # let lazy panels load
+        page.wait_for_timeout(800)
         page.screenshot(path=str(ss_dir / f"viewport-{idx:02d}.png"))
         stop += viewport_height
         idx += 1
@@ -167,7 +177,12 @@ def capture_screenshots(page: Page, out_dir: Path, label: str = "") -> None:
 
 
 def capture_panel_screenshots(page: Page, out_dir: Path) -> None:
-    """Capture individual panel screenshots by locating panel elements."""
+    """Capture individual panel screenshots by locating panel elements.
+
+    Targets the panel body (chart area) when possible, falling back to the
+    full grid item. Skips drag handles, refresh icons, and other sub-element
+    noise that inflates the screenshot count.
+    """
     ss_dir = out_dir / "screenshots"
     ss_dir.mkdir(parents=True, exist_ok=True)
 
@@ -178,10 +193,21 @@ def capture_panel_screenshots(page: Page, out_dir: Path) -> None:
         panel = panels.nth(i)
         try:
             panel.scroll_into_view_if_needed(timeout=5000)
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(1000)  # extra time for canvas paint
             bbox = panel.bounding_box()
-            if bbox and bbox["width"] > 10 and bbox["height"] > 10:
-                panel.screenshot(path=str(ss_dir / f"panel-{i + 1:02d}.png"))
+            if not bbox or bbox["width"] <= 10 or bbox["height"] <= 10:
+                continue
+
+            # Try to capture just the chart body (skip drag handles, icons)
+            body = panel.locator(".panelBody, .panel-body, [data-test*='chart'], canvas, svg").first
+            if body.count() > 0:
+                body_box = body.bounding_box()
+                if body_box and body_box["width"] > 10 and body_box["height"] > 10:
+                    body.screenshot(path=str(ss_dir / f"panel-{i + 1:02d}.png"))
+                    continue
+
+            # Fallback: capture the full panel element
+            panel.screenshot(path=str(ss_dir / f"panel-{i + 1:02d}.png"))
         except Exception as e:
             print(f"    Panel {i + 1} screenshot failed: {e}")
 
@@ -489,6 +515,13 @@ def collect_dashboard(
     print(f"    Extracting DOM text...")
     dom_dir = out_dir / "dom"
     dom_dir.mkdir(parents=True, exist_ok=True)
+
+    # Wait for canvas charts to finish painting before DOM scrape
+    try:
+        page.wait_for_selector("canvas", timeout=5000)
+    except Exception:
+        pass  # Not all dashboards have canvas charts
+    page.wait_for_timeout(2000)
 
     text_content = extract_dom_text(page)
     with open(dom_dir / "text-content.json", "w") as f:
