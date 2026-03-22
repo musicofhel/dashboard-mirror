@@ -1,0 +1,5 @@
+documents:
+  - path: environment.md
+    always_load: true
+  - path: output-structure.md
+    always_load: false
