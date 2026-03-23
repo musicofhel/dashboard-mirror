@@ -28,6 +28,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright, Page, BrowserContext
 
 from . import config as cfg
+from .api import api_get as _shared_api_get, is_error
 
 
 def slugify(title: str) -> str:
@@ -35,21 +36,10 @@ def slugify(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
-def api_get(context: BrowserContext, path: str) -> dict | list | str:
-    """Make an authenticated GET request via Playwright's request context."""
-    resp = context.request.get(
-        f"{cfg.OO_URL}/api/{cfg.OO_ORG}/{path}",
-        headers={"Content-Type": "application/json"},
-    )
-    if resp.ok:
-        return resp.json()
-    return f"HTTP {resp.status}: {resp.text()[:200]}"
-
-
-def list_dashboards(context: BrowserContext) -> list[dict]:
+def list_dashboards() -> list[dict]:
     """Fetch all dashboards from OO, return list of {id, title, slug}."""
-    result = api_get(context, "dashboards")
-    if isinstance(result, str):
+    result = _shared_api_get("dashboards")
+    if is_error(result):
         print(f"  Failed to list dashboards: {result}")
         return []
 
@@ -483,7 +473,6 @@ def capture_timing(page: Page) -> list[dict]:
 
 def collect_dashboard(
     page: Page,
-    context: BrowserContext,
     dash: dict,
     output_base: Path,
 ) -> None:
@@ -558,7 +547,7 @@ def collect_dashboard(
     config_dir = out_dir / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
 
-    stored = api_get(context, f"dashboards/{dash_id}")
+    stored = _shared_api_get(f"dashboards/{dash_id}")
     with open(config_dir / "stored.json", "w") as f:
         json.dump(stored, f, indent=2, default=str)
 
@@ -620,7 +609,7 @@ def main():
 
         # List dashboards
         print("\nFetching dashboard list...")
-        dashboards = list_dashboards(context)
+        dashboards = list_dashboards()
         print(f"  Found {len(dashboards)} dashboards.")
 
         if args.dashboard:
@@ -635,7 +624,7 @@ def main():
 
         # Collect each dashboard
         for dash in dashboards:
-            collect_dashboard(page, context, dash, output_base)
+            collect_dashboard(page, dash, output_base)
 
         browser.close()
 

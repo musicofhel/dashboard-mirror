@@ -115,4 +115,11 @@ Write your analysis as structured markdown:
 [One paragraph: would a developer/operator trust this dashboard for decision-making?]
 ```
 
+### 9. Annotation Visibility
+
+Using `output/_baseline/annotations.json`:
+- Are there annotations configured for this dashboard? Are they visible in screenshots?
+- Do annotations overlap with chart data in a way that hurts readability?
+```
+
 Be specific and actionable. Don't just say "labels are hard to read" — say which label, on which panel, and what the problem is (font too small, contrast too low, text truncated at character N). Ground every observation in something visible in the screenshots or measurable in the data files.

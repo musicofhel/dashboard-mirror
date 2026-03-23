@@ -12,6 +12,7 @@ OO_PASS = os.environ.get("OPENOBSERVE_PASS", "devloop123")
 OO_ORG = os.environ.get("OPENOBSERVE_ORG", "default")
 OUTPUT_DIR = Path(os.environ.get("DM_OUTPUT", "./output"))
 CONFIG_DIR = Path(os.environ.get("DM_CONFIG_DIR", os.path.expanduser("~/dev-loop/config/dashboards")))
+ALERTS_CONFIG = Path(os.environ.get("DM_ALERTS_CONFIG", os.path.expanduser("~/dev-loop/config/alerts/rules.yaml")))
 
 # Time ranges to capture (label, OO relativeTimePeriod value)
 TIME_RANGES = [

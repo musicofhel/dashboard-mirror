@@ -5,13 +5,25 @@ description = "Visual and structural grounding for OpenObserve dashboards — sc
 requires-python = ">=3.11"
 dependencies = [
     "playwright>=1.49",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
 dm-collect = "dashboard_mirror.collect:main"
 dm-schema = "dashboard_mirror.schema:main"
 dm-chain = "dashboard_mirror.transform_chain:main"
+dm-alerts = "dashboard_mirror.alerts:main"
+dm-functions = "dashboard_mirror.functions:main"
+dm-traces = "dashboard_mirror.traces:main"
+dm-health = "dashboard_mirror.health:main"
+dm-supplementary = "dashboard_mirror.supplementary:main"
+dm-collect-all = "dashboard_mirror.collect_all:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

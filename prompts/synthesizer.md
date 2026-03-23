@@ -101,6 +101,46 @@ Write the grounding document as:
 |---|---|---|
 | ... | Column `X` not in schema | When <service/feature> starts emitting spans |
 
+## Alert Coverage
+
+| Alert Name | Monitors | Related Panel(s) | Schema Valid | Enabled | Last Fired | Destination |
+|---|---|---|---|---|---|---|
+| gate_failure_spike | gates.run_all failures | QG P1-3 | Yes | Yes | 2026-03-21 | webhook |
+| agent_stuck | heartbeat gaps | LH P2 | Yes | Yes | never | webhook |
+| ... | ... | ... | ... | ... | ... | ... |
+
+Issues:
+- [Alerts referencing missing columns]
+- [Panels with no corresponding alert]
+- [Disabled alerts that should be enabled]
+- [Active incidents]
+
+## Trace Structure
+
+- Services: dev-loop (N spans), dev-loop-ambient (M spans)
+- Parent-child integrity: [all traces valid / N broken links]
+- Duration ranges:
+
+| Operation | Min (µs) | Avg (µs) | Max (µs) | Chart Impact |
+|---|---|---|---|---|
+| tb1.run | 17000000 | 38000000 | 112000000 | renders fine at seconds scale |
+| tb1.phase.persona | 2 | 12 | 31 | too small for ms/s charts — explains AP P2 |
+| gates.run_all | ... | ... | ... | ... |
+
+- Attribute coverage gaps: [operations where expected attributes are NULL]
+
+## Functions & Pipelines
+
+- Active functions: [N / none]
+- Active pipelines: [N / none]
+- Data flow: [unmodified / transformed by: list]
+- Impact on dashboards: [none / list affected panels]
+
+## Reports & Annotations
+
+- Scheduled reports: [N / none]
+- Dashboard annotations: [N / none]
+
 ## Actionable Issues
 
 Priority-ordered list of things that need fixing:

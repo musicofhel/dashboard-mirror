@@ -92,4 +92,26 @@ Write your analysis as structured markdown:
 [One paragraph: is the data correct and well-labeled?]
 ```
 
+### 7. Alert Correlation
+
+For each panel, check if there's a corresponding alert monitoring the same metric (read `output/_baseline/alerts.json`):
+- Does the alert SQL match the panel SQL closely?
+- If the panel shows "No Data", would the alert also be silent? (Double-blind failure)
+- If the panel shows a spike, would the alert have fired?
+- Note panels with NO corresponding alert — these are unmonitored metrics.
+
+### 8. Trace-Backed Validation
+
+Using `output/_baseline/trace-operations.json`, `trace-attributes.json`, `trace-durations.json`:
+- For panels that filter by `operation_name`: are all expected operations present in trace data?
+- For duration panels: does the duration distribution explain rendering anomalies? (e.g., all durations <100µs means a chart in seconds shows zero)
+- For panels referencing specific span attributes: does that attribute actually exist on the operation the query filters for? Use `trace-attributes.json` to verify.
+
+### 9. Function Impact Assessment
+
+Using `output/_baseline/functions.json`, `pipelines.json`:
+- Could any active function or pipeline be modifying the data this panel queries?
+- If a function renames a column, does the panel use the pre-rename or post-rename name?
+```
+
 Be precise. Quote exact column names, row counts, axis values, and color hex codes. Distinguish between "no data because the column doesn't exist in the schema" and "no data because the query is wrong."

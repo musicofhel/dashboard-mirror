@@ -1,10 +1,10 @@
 ---
 name: collect
-description: "Capture mirror bundles from OpenObserve dashboards — screenshots, DOM text, API responses, config chains, layout metrics."
+description: "Capture mirror bundles from OpenObserve dashboards — screenshots, DOM text, API responses, config chains, layout metrics, alerts, traces, functions, health."
 license: MIT
 metadata:
   author: musicofhel
-  version: "0.1.0"
+  version: "0.2.0"
   category: collection
 ---
 
@@ -21,21 +21,88 @@ Use this skill when you need to capture or refresh the raw mirror data from Open
 
 # Commands
 
-Run from the `~/dashboard-mirror` directory:
+Run from the `~/dashboard-mirror` directory.
 
-## 1. Schema Capture
+## Recommended: Full Collection
 
-Fetch all stream field definitions and sample data from OO:
+Run ALL collectors in sequence (API collectors + Playwright):
+
+```bash
+uv run dm-collect-all
+```
+
+To skip the slow Playwright step (API data only):
+
+```bash
+uv run dm-collect-all --skip-playwright
+```
+
+## Individual Collectors
+
+### 1. OO Health & Config
+
+Check OO instance health, version, config, and cluster state:
+
+```bash
+uv run dm-health
+```
+
+Output: `output/_baseline/oo-health.json`, `oo-config.json`, `oo-org-settings.json`, `oo-org-summary.json`, `oo-cluster.json`
+
+### 2. Schema Capture
+
+Fetch all stream field definitions and sample data:
 
 ```bash
 uv run dm-schema
 ```
 
-Output: `output/_baseline/stream-schema.json`
+Output: `output/_baseline/stream-schema.json`, `cross-dashboard-map.json`
 
-## 2. Config Chain Capture
+### 3. Alerts
 
-Trace dashboard configs through 4 transformation stages (source → transformed → sent → stored) and generate diffs:
+Capture alert rules, history, incidents, destinations, and drift check:
+
+```bash
+uv run dm-alerts
+uv run dm-alerts --alerts-config ~/dev-loop/config/alerts/rules.yaml
+```
+
+Output: `output/_baseline/alerts.json`, `alert-history.json`, `alert-incidents.json`, `alert-templates.json`, `alert-destinations.json`, `alert-dedup.json`, `alert-drift.json`, `alert-schema-coverage.json`
+
+### 4. Functions & Pipelines
+
+Capture VRL functions, pipelines, and modification history:
+
+```bash
+uv run dm-functions
+```
+
+Output: `output/_baseline/functions.json`, `pipelines.json`, `pipeline-streams.json`, `pipeline-history.json`
+
+### 5. Deep Trace Analysis
+
+Analyze trace structure, operations, durations, and attribute coverage:
+
+```bash
+uv run dm-traces
+```
+
+Output: `output/_baseline/trace-services.json`, `trace-operations.json`, `trace-attributes.json`, `trace-structure.json`, `trace-dag.json`, `trace-durations.json`
+
+### 6. Supplementary Data
+
+Capture saved views, reports, annotations, enrichment tables, and folders:
+
+```bash
+uv run dm-supplementary
+```
+
+Output: `output/_baseline/saved-views.json`, `enrichment-tables.json`, `reports.json`, `annotations.json`, `folders.json`
+
+### 7. Config Chain
+
+Trace dashboard configs through 4 transformation stages and generate diffs:
 
 ```bash
 uv run dm-chain --config-dir ~/dev-loop/config/dashboards
@@ -43,26 +110,16 @@ uv run dm-chain --config-dir ~/dev-loop/config/dashboards
 
 Output per dashboard: `output/<slug>/config/{source,transformed,sent,stored}.json` + `chain-diff.txt`
 
-## 3. Full Mirror Collection
+### 8. Full Mirror Collection (Playwright)
 
-Launch Playwright to capture screenshots, DOM text, API responses, layout metrics, and timing for all dashboards:
+Launch Playwright to capture screenshots, DOM text, API responses, layout metrics, and timing:
 
 ```bash
 uv run dm-collect
-```
-
-To target specific dashboards:
-
-```bash
 uv run dm-collect --dashboard dora-metrics-proxy --dashboard loop-health
 ```
 
-Output per dashboard:
-- `screenshots/` — full-page, viewport stops, per-panel PNGs
-- `screenshots-{1h,7d}/` — same at different time ranges
-- `dom/` — text-content.json, layout-metrics.json, chart-data.json
-- `api/` — queries-executed.json, errors.json
-- `timing.json`, `meta.json`
+Output per dashboard: `screenshots/`, `dom/`, `api/`, `timing.json`, `meta.json`
 
 # Environment Variables
 
@@ -74,12 +131,13 @@ Output per dashboard:
 | `OPENOBSERVE_ORG` | `default` | OO organization |
 | `DM_OUTPUT` | `./output` | Output directory |
 | `DM_CONFIG_DIR` | `~/dev-loop/config/dashboards` | Source config directory |
+| `DM_ALERTS_CONFIG` | `~/dev-loop/config/alerts/rules.yaml` | Source alert rules YAML |
 
 # Typical Flow
 
 ```bash
 cd ~/dashboard-mirror
-uv run dm-schema                                    # ~10s
-uv run dm-chain --config-dir ~/dev-loop/config/dashboards  # ~5s
-uv run dm-collect                                   # ~3-5 min for 6 dashboards
+uv run dm-collect-all                # Full pipeline (~4-6 min)
+# OR for API-only (no screenshots):
+uv run dm-collect-all --skip-playwright  # ~30-40s
 ```
