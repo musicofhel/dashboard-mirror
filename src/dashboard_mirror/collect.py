@@ -78,15 +78,32 @@ def login(page: Page) -> None:
 def set_time_range(page: Page, period: str) -> None:
     """Set the dashboard time picker to a relative period.
 
-    Clicks the date-time picker and selects the appropriate preset.
+    Clicks the date-time picker, selects a preset via data-test selector, and
+    clicks Apply.  OO uses ``data-test="date-time-relative-{value}-{unit}-btn"``
+    where unit is s/m/h/d/w/M.
     """
-    # Map our period labels to OO's UI button text
+    # Map our shorthand to (value, unit) for OO's data-test selectors.
+    # OO presets: seconds 1-45, minutes 1-45, hours 1-12, days 1-6,
+    # weeks 1-6, months 1-6.  "30d" maps to 1 month (closest available).
     period_map = {
-        "1h": "Past 1 Hours",
-        "7d": "Past 7 Days",
-        "30d": "Past 30 Days",
+        "1h": ("1", "h"),
+        "7d": ("1", "w"),
+        "30d": ("1", "M"),
     }
-    label = period_map.get(period, f"Past {period}")
+    # Parse arbitrary periods like "6h", "2w", "3M"
+    if period not in period_map:
+        import re
+
+        m = re.match(r"(\d+)\s*([smhdwM])", period)
+        if m:
+            period_map[period] = (m.group(1), m.group(2))
+
+    if period not in period_map:
+        print(f"    Unknown time range period: {period}")
+        return
+
+    value, unit = period_map[period]
+    selector = f'[data-test="date-time-relative-{value}-{unit}-btn"]'
 
     # Click the date-time picker to open it
     picker = page.locator('[data-test="date-time-btn"]')
@@ -94,19 +111,17 @@ def set_time_range(page: Page, period: str) -> None:
         picker.first.click()
         page.wait_for_timeout(500)
 
-        # Look for the preset button
-        preset = page.locator(f'text="{label}"').first
-        if preset.is_visible():
-            preset.click()
+        preset = page.locator(selector)
+        if preset.count() > 0 and preset.first.is_visible():
+            preset.first.click()
+            page.wait_for_timeout(300)
+            # Click Apply
+            apply_btn = page.locator('[data-test="date-time-apply-btn"]')
+            if apply_btn.count() > 0:
+                apply_btn.first.click()
             page.wait_for_timeout(1000)
         else:
-            # Try without exact match
-            preset = page.get_by_text(label, exact=False).first
-            if preset.is_visible():
-                preset.click()
-                page.wait_for_timeout(1000)
-            else:
-                print(f"    Could not find time range preset: {label}")
+            print(f"    Could not find time range preset: {selector}")
 
 
 def wait_for_panels_loaded(page: Page, timeout: int = 30000) -> None:
