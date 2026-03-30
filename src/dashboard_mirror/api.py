@@ -39,9 +39,9 @@ def api_get(path: str, org: str | None = None) -> dict | list | str:
 
 
 def api_get_v2(path: str, org: str | None = None) -> dict | list | str:
-    """Authenticated GET to OO v2 API (alerts use /v2/ prefix, NOT /api/v2/)."""
+    """Authenticated GET to OO v2 API (/api/v2/{org}/{path})."""
     org = org or cfg.OO_ORG
-    url = f"{cfg.OO_URL}/v2/{org}/{path}"
+    url = f"{cfg.OO_URL}/api/v2/{org}/{path}"
     req = urllib.request.Request(url, method="GET", headers={
         "Content-Type": "application/json",
         "Authorization": f"Basic {_creds()}",

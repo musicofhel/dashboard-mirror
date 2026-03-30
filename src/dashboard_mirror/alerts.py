@@ -136,7 +136,9 @@ def detect_drift(source_alerts: list[dict], live_alerts: list[dict]) -> dict:
                 diffs.append({"field": "enabled", "source": src_enabled, "live": live_enabled})
 
             src_sql = src.get("sql", src.get("query", ""))
-            live_sql = live.get("query_condition", {}).get("sql", "") if isinstance(live.get("query_condition"), dict) else ""
+            # OO v2 API uses "condition", v1 used "query_condition"
+            live_qc = live.get("condition", live.get("query_condition", {}))
+            live_sql = live_qc.get("sql", "") if isinstance(live_qc, dict) else ""
             if src_sql and live_sql and _normalize_sql(src_sql) != _normalize_sql(live_sql):
                 diffs.append({"field": "sql", "source": src_sql, "live": live_sql})
 
@@ -196,7 +198,8 @@ def check_schema_coverage(alerts: list[dict], schema_path: Path) -> list[dict]:
     for alert in alerts:
         name = alert.get("name", "")
         sql = ""
-        qc = alert.get("query_condition", {})
+        # OO v2 API uses "condition", v1 used "query_condition"
+        qc = alert.get("condition", alert.get("query_condition", {}))
         if isinstance(qc, dict):
             sql = qc.get("sql", "")
         if not sql:
